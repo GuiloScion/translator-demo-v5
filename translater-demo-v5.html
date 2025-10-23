@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Real-Time Translator</title>
+<style>
+  body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
+  button { padding: 12px 20px; margin: 10px; font-size: 16px; border-radius: 10px; border: none; background: #007BFF; color: white; cursor: pointer; }
+  button:disabled { background: gray; cursor: not-allowed; }
+  select { padding: 8px; font-size: 16px; margin: 5px; }
+  #translations, #liveText { margin-top: 20px; text-align: left; max-width: 500px; margin-left: auto; margin-right: auto; background: #f8f8f8; padding: 15px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+  #translations { max-height: 250px; overflow-y: auto; }
+  .chunk { padding: 5px 35px 5px 5px; margin-bottom: 5px; border-radius: 5px; background-color: #e0f7fa; position: relative; }
+  .replayBtn { position: absolute; right: 5px; top: 50%; transform: translateY(-50%); background: #007BFF; color: white; border: none; border-radius: 5px; padding: 2px 5px; cursor: pointer; font-size: 12px; }
+  #liveText { font-style: italic; color: #333; }
+</style>
+</head>
+<body>
+
+<h1>Real-Time Translator 🌍</h1>
+<p>Select languages and press Start:</p>
+
+<button id="enableAudioBtn">🔊 Enable Audio</button>
+
+<label for="fromLang">🎤 Input Language:</label>
+<select id="fromLang">
+  <option value="en">English</option>
+  <option value="es">Spanish</option>
+  <option value="sv">Swedish</option>
+  <option value="fr">French</option>
+</select>
+
+<label for="toLang">🔊 Output Language:</label>
+<select id="toLang">
+  <option value="en">English</option>
+  <option value="es">Spanish</option>
+  <option value="sv">Swedish</option>
+  <option value="fr">French</option>
+</select>
+
+<br><br>
+<button id="toggleBtn">▶ Start</button>
+<button id="replayAllBtn">🔁 Replay All</button>
+<button id="clearBtn">🧹 Clear All</button>
+
+<div id="liveText">🎙️ Live text will appear here...</div>
+<div id="translations"></div>
+
+<script>
+const enableAudioBtn = document.getElementById("enableAudioBtn");
+const toggleBtn = document.getElementById("toggleBtn");
+const replayAllBtn = document.getElementById("replayAllBtn");
+const clearBtn = document.getElementById("clearBtn");
+const translationsDiv = document.getElementById("translations");
+const liveText = document.getElementById("liveText");
+const fromLang = document.getElementById("fromLang");
+const toLang = document.getElementById("toLang");
+
+const langMap = { "es":"es-ES", "en":"en-US", "sv":"sv-SE", "fr":"fr-FR" };
+
+let recognition = null;
+let listening = false;
+let allTranslations = [];
+let audioEnabled = false;
+
+// Check for Speech Recognition API support
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+if (SpeechRecognition) {
+  initRecognition();
+} else {
+  alert("Speech Recognition not supported in this browser.");
+  toggleBtn.disabled = true;
+}
+
+function initRecognition() {
+  recognition = new SpeechRecognition();
+  recognition.continuous = false; // Set to false to trigger `onend` after a pause
+  recognition.interimResults = true;
+
+  recognition.onstart = () => {
+    listening = true;
+    toggleBtn.textContent = "⏹ Stop";
+    liveText.textContent = "🎙️ Listening...";
+  };
+
+  recognition.onend = () => {
+    listening = false;
+    toggleBtn.textContent = "▶ Start";
+    liveText.textContent = "🎙️ ...";
+    // Restart listening after a short pause to continue the conversation
+    if (toggleBtn.textContent === "⏹ Stop") {
+      setTimeout(() => {
+        if (!listening) recognition.start();
+      }, 500); 
+    }
+  };
+
+  recognition.onresult = (event) => {
+    let finalTranscript = "";
+    let interimTranscript = "";
+
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const transcript = (event.results[i][0].transcript || "").trim();
+      if (event.results[i].isFinal) {
+        finalTranscript += transcript + " ";
+      } else {
+        interimTranscript += transcript + " ";
+      }
+    }
+
+    if (interimTranscript) {
+      liveText.textContent = "🎙️ " + interimTranscript;
+    }
+
+    if (finalTranscript) {
+      commitChunk(finalTranscript.trim());
+    }
+  };
+
+  recognition.onerror = (e) => {
+    console.error("Recognition error:", e);
+    // Optionally display the error to the user
+    liveText.textContent = "⚠️ An error occurred. Try again.";
+  };
+}
+
+async function commitChunk(transcript) {
+  if (!transcript) return;
+  liveText.textContent = "🎙️ Translating...";
+  
+  const from = fromLang.value;
+  const to = toLang.value;
+  const translated = await translateText(transcript, from, to);
+  addTranslation(transcript, translated);
+  if (audioEnabled) speak(translated, langMap[to]);
+}
+
+// *** ACTION REQUIRED: Replace with a more reliable translation service ***
+// You will need to sign up for a free tier or purchase a plan with a provider like LibreTranslate, Microsoft, or DeepL.
+async function translateText(text, from, to) {
+  // Example for a hypothetical LibreTranslate service (adjust endpoint and method)
+  /*
+  try {
+    const response = await fetch('https://libretranslate.com/translate', {
+        method: 'POST',
+        body: JSON.stringify({
+            q: text,
+            source: from,
+            target: to,
+        }),
+        headers: { "Content-Type": "application/json" }
+    });
+    const data = await response.json();
+    return data.translatedText;
+  } catch (error) {
+    console.error("Translation failed:", error);
+    return "(translation failed)";
+  }
+  */
+  console.log(`[Placeholder] Translating "${text}" from ${from} to ${to}`);
+  return "(translation service unavailable)"; // Placeholder for now
+}
+
+function addTranslation(original, translated) {
+  const chunkDiv = document.createElement("div");
+  chunkDiv.className = "chunk";
+  chunkDiv.innerHTML = `<strong>${original}</strong> → ${translated}`;
+  const replayBtn = document.createElement("button");
+  replayBtn.textContent = "🔊";
+  replayBtn.className = "replayBtn";
+  replayBtn.onclick = () => speak(translated, langMap[toLang.value]);
+  chunkDiv.appendChild(replayBtn);
+
+  translationsDiv.appendChild(chunkDiv);
+  translationsDiv.scrollTop = translationsDiv.scrollHeight;
+
+  allTranslations.push(translated);
+}
+
+function speak(text, langCode) {
+  const utterance = new SpeechSynthesisUtterance(text);
+  const voices = speechSynthesis.getVoices();
+  const match = voices.find(v => v.lang.startsWith(langCode));
+  if (match) utterance.voice = match;
+  utterance.lang = langCode;
+  speechSynthesis.speak(utterance);
+}
+
+// Event Listeners
+enableAudioBtn.addEventListener("click", () => {
+  const utterance = new SpeechSynthesisUtterance("Audio Enabled");
+  speechSynthesis.speak(utterance);
+  audioEnabled = true;
+  enableAudioBtn.disabled = true;
+  enableAudioBtn.textContent = "✅ Audio Enabled";
+});
+
+toggleBtn.addEventListener("click", () => {
+  if (!listening) {
+    recognition.lang = langMap[fromLang.value];
+    recognition.start();
+    // The `onstart` event handler will update the UI
+  } else {
+    recognition.stop();
+    // The `onend` event handler will update the UI
+  }
+});
+
+replayAllBtn.addEventListener("click", () => {
+  if (allTranslations.length === 0) {
+    alert("No translations to replay yet!");
+    return;
+  }
+  allTranslations.forEach((text, i) => {
+    setTimeout(() => speak(text, langMap[toLang.value]), i * 1500);
+  });
+});
+
+clearBtn.addEventListener("click", () => {
+  const confirmClear = confirm("Are you sure you want to clear all translations?");
+  if (!confirmClear) return;
+  translationsDiv.innerHTML = "";
+  liveText.textContent = "🎙️ Live text will appear here...";
+  allTranslations = [];
+  speechSynthesis.cancel();
+});
+
+// Ensure voices are loaded for speech synthesis
+window.speechSynthesis.onvoiceschanged = () => {};
+
+</script>
+</body>
+</html>
